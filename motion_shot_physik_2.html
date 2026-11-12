@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Motion Shot Physik – Stroboskop-Bewegungsanalyse</title>
+    <!-- Tailwind CSS für modernes, responsives UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono für Messwerte -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Lucide Icons für gestochen scharfe Kamera- und Physik-Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#151e2e',
+                            950: '#0a0f1a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Benutzerdefinierte Styles für Slider und Canvas-Darstellung */
+        body {
+            background-color: #0a0f1a;
+            color: #f1f5f9;
+            -webkit-tap-highlight-color: transparent;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: #1e293b;
+            height: 0.45rem;
+            border-radius: 999px;
+            border: 1px solid #334155;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -5px;
+            background-color: #38bdf8;
+            height: 1.15rem;
+            width: 1.15rem;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+            transition: transform 0.1s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:active {
+            transform: scale(1.2);
+        }
+        /* Verstecke Scrollbar in der Thumbnail-Leiste, behalte Scroll-Funktion */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 0.4; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .recording-pulse {
+            animation: pulse-ring 1.2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased selection:bg-sky-500 selection:text-white">
+
+    <!-- Benachrichtigungs-Banner (Toast statt alert()) -->
+    <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-11/12 max-w-md pointer-events-none"></div>
+
+    <!-- Header / Navigation -->
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+                    <i data-lucide="aperture" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                        Motion Shot <span class="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30">Physik</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">Stroboskop-Bewegungsanalyse für Kinematik & Mechanik</p>
+                </div>
+            </div>
+
+            <!-- Schnellaktion: Demo-Versuch & Hilfe -->
+            <div class="flex items-center gap-2">
+                <button id="btn-load-demo" class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-sm font-medium transition active:scale-95">
+                    <i data-lucide="play-circle" class="w-4 h-4"></i>
+                    <span>Demo-Versuch laden</span>
+                </button>
+                <button id="btn-toggle-tips" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition" title="Tipps für den Physikunterricht">
+                    <i data-lucide="help-circle" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Ausklappbare Physik-Tipps Box -->
+    <div id="tips-panel" class="hidden bg-slate-900 border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 py-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div class="bg-slate-850 p-3.5 rounded-xl border border-slate-800 flex items-start gap-3">
+                <i data-lucide="smartphone" class="w-5 h-5 text-sky-400 shrink-0 mt-0.5"></i>
+                <div>
+                    <h3 class="font-semibold text-white">1. Stativ & ruhige Kamera</h3>
+                    <p class="text-slate-400 text-xs mt-1">Fixiere Smartphone oder Tablet auf einem Stativ oder einer Tischkante. Der Algorithmus erkennt nur Bewegungen vor einem ruhenden Hintergrund.</p>
+                </div>
+            </div>
+            <div class="bg-slate-850 p-3.5 rounded-xl border border-slate-800 flex items-start gap-3">
+                <i data-lucide="contrast" class="w-5 h-5 text-amber-400 shrink-0 mt-0.5"></i>
+                <div>
+                    <h3 class="font-semibold text-white">2. Kontrast & Beleuchtung</h3>
+                    <p class="text-slate-400 text-xs mt-1">Nutze einen hellen Ball vor einer dunklen Tafel (oder umgekehrt) und vermeide flackernde Leuchtstoffröhren bei Slow-Motion-Aufnahmen.</p>
+                </div>
+            </div>
+            <div class="bg-slate-850 p-3.5 rounded-xl border border-slate-800 flex items-start gap-3">
+                <i data-lucide="ruler" class="w-5 h-5 text-emerald-400 shrink-0 mt-0.5"></i>
+                <div>
+                    <h3 class="font-semibold text-white">3. Maßstab im Bild platzieren</h3>
+                    <p class="text-slate-400 text-xs mt-1">Stelle ein 1-Meter-Lineal in die Bewegungsebene. So können Schüler direkt im exportierten PNG-Bild Strecken und Geschwindigkeiten ($v = \Delta s / \Delta t$) messen.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hauptbereich: Responsive 2-Spalten-Layout auf großen Bildschirmen -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-5 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Linke/Obere Spalte: Vorschau, Kamera, Video oder Stroboskop-Ergebnis (7/12 auf Desktop) -->
+        <div class="lg:col-span-7 flex flex-col gap-4">
+
+            <!-- Modus-Umschalter (Tabs) -->
+            <div class="bg-slate-900 p-1.5 rounded-2xl border border-slate-800 grid grid-cols-3 gap-1.5">
+                <button id="tab-camera" class="tab-btn flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition bg-sky-600 text-white shadow">
+                    <i data-lucide="camera" class="w-4 h-4"></i>
+                    <span>Live-Kamera</span>
+                </button>
+                <button id="tab-upload" class="tab-btn flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition text-slate-400 hover:text-white hover:bg-slate-800">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    <span>Video-Upload</span>
+                </button>
+                <button id="tab-result" class="tab-btn flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition text-slate-400 hover:text-white hover:bg-slate-800 relative">
+                    <i data-lucide="layers" class="w-4 h-4"></i>
+                    <span>Stroboskop</span>
+                    <span id="badge-ready" class="hidden w-2 h-2 rounded-full bg-emerald-400 absolute top-2 right-2"></span>
+                </button>
+            </div>
+
+            <!-- Haupt-Bühne (Viewport Container) -->
+            <div class="relative w-full bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex items-center justify-center min-h-[300px] sm:min-h-[420px]">
+
+                <!-- ANSICHT 1: LIVE-KAMERA -->
+                <div id="view-camera" class="w-full h-full flex flex-col items-center justify-center relative">
+                    <video id="camera-preview" autoplay playsinline muted class="w-full max-h-[60vh] object-contain bg-black hidden"></video>
+
+                    <!-- Kamera-Startplatzhalter -->
+                    <div id="camera-placeholder" class="p-8 text-center flex flex-col items-center gap-4">
+                        <div class="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center text-sky-400 border border-slate-700">
+                            <i data-lucide="video" class="w-8 h-8"></i>
+                        </div>
+                        <div class="max-w-sm">
+                            <h2 class="text-base font-semibold text-white">Kamera für Experiment aktivieren</h2>
+                            <p class="text-xs text-slate-400 mt-1">Greift bevorzugt auf die Rückkamera zu. Ideal für direkte Aufnahmen auf dem Tablet oder Smartphone.</p>
+                        </div>
+                        <button id="btn-start-camera" class="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm shadow-lg shadow-sky-600/25 transition active:scale-95 flex items-center gap-2">
+                            <i data-lucide="camera" class="w-4 h-4"></i>
+                            <span>Kamera starten</span>
+                        </button>
+                    </div>
+
+                    <!-- Countdown Overlay -->
+                    <div id="countdown-overlay" class="hidden absolute inset-0 bg-slate-950/75 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+                        <span class="text-xs uppercase tracking-widest text-sky-400 font-semibold mb-2">Versuch startet in</span>
+                        <div id="countdown-number" class="text-7xl font-bold font-mono text-white">3</div>
+                    </div>
+
+                    <!-- Aufnahme-Indikator Overlay -->
+                    <div id="recording-overlay" class="hidden absolute top-4 left-4 right-4 flex items-center justify-between z-20 pointer-events-none">
+                        <div class="flex items-center gap-2 bg-red-600/90 backdrop-blur px-3 py-1.5 rounded-full text-white text-xs font-bold shadow-lg">
+                            <span class="w-2.5 h-2.5 rounded-full bg-white recording-pulse"></span>
+                            <span>AUFNAHME LÄUFT</span>
+                        </div>
+                        <div id="recording-timer" class="bg-slate-950/80 backdrop-blur px-3 py-1.5 rounded-full text-white font-mono text-xs border border-slate-700">
+                            0.0s / 2.0s
+                        </div>
+                    </div>
+
+                    <!-- Kamera-Steuerleiste unten -->
+                    <div id="camera-controls" class="hidden w-full bg-slate-900/95 border-t border-slate-800 p-3 flex flex-wrap items-center justify-between gap-3">
+                        <button id="btn-switch-camera" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1.5 border border-slate-700 transition">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            <span>Kamera wechseln</span>
+                        </button>
+
+                        <button id="btn-record-trigger" class="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-sm shadow-lg shadow-red-600/30 flex items-center gap-2 transition active:scale-95">
+                            <i data-lucide="circle-dot" class="w-4 h-4"></i>
+                            <span id="record-btn-label">Aufnahme starten</span>
+                        </button>
+
+                        <div class="flex items-center gap-2 text-xs text-slate-400">
+                            <span>Dauer:</span>
+                            <select id="select-rec-duration" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono focus:outline-none focus:border-sky-500">
+                                <option value="1">1 s</option>
+                                <option value="2" selected>2 s</option>
+                                <option value="3">3 s</option>
+                                <option value="4">4 s</option>
+                                <option value="5">5 s</option>
+                            </select>
+                            <span>Countdown:</span>
+                            <select id="select-countdown" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono focus:outline-none focus:border-sky-500">
+                                <option value="0">0 s</option>
+                                <option value="3" selected>3 s</option>
+                                <option value="5">5 s</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ANSICHT 2: VIDEO-UPLOAD -->
+                <div id="view-upload" class="hidden w-full p-6 sm:p-10 flex flex-col items-center justify-center text-center">
+                    <label for="video-file-input" id="drop-zone" class="w-full max-w-lg border-2 border-dashed border-slate-700 hover:border-sky-500 bg-slate-850/60 hover:bg-slate-850 rounded-2xl p-8 cursor-pointer transition flex flex-col items-center gap-4">
+                        <div class="w-16 h-16 rounded-2xl bg-sky-500/10 text-sky-400 flex items-center justify-center border border-sky-500/20">
+                            <i data-lucide="film" class="w-8 h-8"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-semibold text-white">Videodatei auswählen oder hierher ziehen</h3>
+                            <p class="text-xs text-slate-400 mt-1">Unterstützt MP4, MOV, WebM (ideal für Smartphone Slow-Motion-Videos)</p>
+                        </div>
+                        <span class="px-4 py-2 rounded-xl bg-sky-600 text-white text-xs font-semibold shadow">Datei durchsuchen</span>
+                        <input id="video-file-input" type="file" accept="video/*" class="hidden">
+                    </label>
+                    <p id="uploaded-file-info" class="text-xs text-emerald-400 mt-3 hidden font-mono"></p>
+                </div>
+
+                <!-- ANSICHT 3: STROBOSKOP-ERGEBNIS (CANVAS) -->
+                <div id="view-result" class="hidden w-full flex flex-col items-center justify-center relative bg-black">
+                    <canvas id="stroboscope-canvas" class="max-w-full max-h-[65vh] w-auto h-auto block"></canvas>
+
+                    <!-- Lade-/Verarbeitungs-Overlay -->
+                    <div id="processing-overlay" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-20 p-4 text-center">
+                        <div class="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p id="processing-text" class="text-sm font-semibold text-white">Extrahiere Einzelbilder...</p>
+                        <div class="w-48 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div id="processing-bar" class="h-full bg-sky-500 w-0 transition-all duration-150"></div>
+                        </div>
+                    </div>
+
+                    <!-- Leerer Zustand im Ergebnis-Tab -->
+                    <div id="result-empty-state" class="p-10 text-center flex flex-col items-center gap-3">
+                        <i data-lucide="image" class="w-10 h-10 text-slate-600"></i>
+                        <p class="text-sm text-slate-400">Noch keine Aufnahme analysiert.</p>
+                        <p class="text-xs text-slate-500">Nimm ein Video auf, lade eine Datei hoch oder starte oben rechts den <strong>Demo-Versuch</strong>.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interaktive Einzelbild-Leiste (Thumbnails zum An-/Abwählen) -->
+            <div id="thumbnails-section" class="hidden bg-slate-900 rounded-2xl border border-slate-800 p-4">
+                <div class="flex items-center justify-between mb-2.5">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="film" class="w-4 h-4 text-sky-400"></i>
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Einzelbilder (Phasen ein-/ausblenden)</h3>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="btn-trim-first" class="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 transition" title="Erstes sichtbares Bild entfernen (falls Startbild fehlerhaft)">Erstes Bild kappen</button>
+                        <button id="btn-select-all-frames" class="text-xs text-sky-400 hover:underline">Alle</button>
+                        <span class="text-slate-600">|</span>
+                        <button id="btn-select-even-frames" class="text-xs text-sky-400 hover:underline">Jedes 2.</button>
+                    </div>
+                </div>
+                <div id="thumbnails-list" class="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
+                    <!-- Thumbnails werden dynamisch per JS eingefügt -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Rechte/Untere Spalte: Motion Shot Analyse-Steuerung & Physik-Export (5/12 auf Desktop) -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+
+            <!-- Parameter-Box -->
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 flex flex-col gap-5 shadow-xl">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="sliders" class="w-5 h-5 text-sky-400"></i>
+                        <h2 class="font-semibold text-white">Stroboskop-Parameter</h2>
+                    </div>
+                    <span id="badge-fps-info" class="text-xs font-mono text-slate-400 bg-slate-850 px-2.5 py-1 rounded-lg border border-slate-800">Bereit</span>
+                </div>
+
+                <!-- 1. Zeitabstand Δt / Anzahl der Phasen -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex justify-between items-center gap-2">
+                        <label for="slider-interval" class="text-sm font-medium text-slate-200 flex items-center gap-1.5">
+                            <span>Zeitabstand $\Delta t$</span>
+                        </label>
+                        <span id="val-interval" class="font-mono text-xs sm:text-sm font-semibold text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-md border border-sky-500/20">40 ms (0,040 s | 25 Hz)</span>
+                    </div>
+                    <input id="slider-interval" type="range" min="5" max="500" step="5" value="40" class="w-full">
+                    <div class="flex justify-between items-center text-[11px] text-slate-500 font-mono">
+                        <span>5 ms (0,005 s)</span>
+                        <button id="btn-every-frame" type="button" class="text-sky-400 hover:text-sky-300 underline">Alle erfassten Frames (1:1)</button>
+                        <span>500 ms (0,500 s)</span>
+                    </div>
+                </div>
+
+                <!-- 2. Bewegungsempfindlichkeit (Schwellenwert) -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex justify-between items-center">
+                        <label for="slider-threshold" class="text-sm font-medium text-slate-200">Empfindlichkeit (Objekt-Freistellung)</label>
+                        <span id="val-threshold" class="font-mono text-sm font-semibold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-md border border-amber-500/20">32</span>
+                    </div>
+                    <input id="slider-threshold" type="range" min="10" max="100" step="1" value="32" class="w-full">
+                    <p class="text-xs text-slate-400">Niedriger Wert = erkennt auch schwache Kontraste. Höherer Wert = filtert Schatten und Bildrauschen heraus.</p>
+                </div>
+
+                <!-- 3. Transparenz / Fade-Effekt -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex justify-between items-center">
+                        <label for="slider-fade" class="text-sm font-medium text-slate-200">Verlauf / Fade-Effekt (Bewegungsrichtung)</label>
+                        <span id="val-fade" class="font-mono text-sm font-semibold text-purple-400 bg-purple-500/10 px-2.5 py-0.5 rounded-md border border-purple-500/20">40 %</span>
+                    </div>
+                    <input id="slider-fade" type="range" min="0" max="85" step="5" value="40" class="w-full">
+                    <p class="text-xs text-slate-400">0 % = Alle Phasen gleich kräftig. Hoher Wert = ältere Positionen verblassen (zeigt klar die Flugrichtung).</p>
+                </div>
+
+                <!-- 4. Physik-Overlays (Checkboxen) -->
+                <div class="border-t border-slate-800 pt-4 flex flex-col gap-3">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Physik-Einblendungen im Bild</span>
+
+                    <label class="flex items-center justify-between cursor-pointer bg-slate-850 p-3 rounded-xl border border-slate-800 hover:border-slate-700 transition">
+                        <div class="flex items-center gap-2.5">
+                            <i data-lucide="clock" class="w-4 h-4 text-sky-400"></i>
+                            <span class="text-sm text-slate-200">Info-Box mit $\Delta t$ & Frequenz einblenden</span>
+                        </div>
+                        <input id="chk-show-overlay" type="checkbox" checked class="w-4 h-4 accent-sky-500 rounded cursor-pointer">
+                    </label>
+
+                    <label class="flex items-center justify-between cursor-pointer bg-slate-850 p-3 rounded-xl border border-slate-800 hover:border-slate-700 transition">
+                        <div class="flex items-center gap-2.5">
+                            <i data-lucide="hash" class="w-4 h-4 text-emerald-400"></i>
+                            <span class="text-sm text-slate-200">Phasen-Nummern ($t_0, t_1, \dots$) markieren</span>
+                        </div>
+                        <input id="chk-show-numbers" type="checkbox" class="w-4 h-4 accent-sky-500 rounded cursor-pointer">
+                    </label>
+                </div>
+
+                <!-- 5. Export-Button -->
+                <div class="pt-2 flex flex-col sm:flex-row gap-3">
+                    <button id="btn-export-png" disabled class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-lg shadow-sky-500/20 transition active:scale-95 flex items-center justify-center gap-2">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Stroboskop als PNG speichern</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Kurze Auswertungs-Info für den Unterricht -->
+            <div id="physics-summary-card" class="hidden bg-slate-900/80 rounded-2xl border border-slate-800 p-4 text-xs text-slate-300 flex flex-col gap-2">
+                <div class="flex items-center gap-2 text-sky-400 font-semibold">
+                    <i data-lucide="calculator" class="w-4 h-4"></i>
+                    <span>Messdaten für die Auswertung</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 font-mono bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 text-center">
+                    <div>
+                        <span class="text-[10px] text-slate-500 block">Zeitintervall Δt</span>
+                        <span id="stat-dt" class="text-white font-semibold">0.100 s</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-500 block">Aktive Phasen</span>
+                        <span id="stat-count" class="text-white font-semibold">0</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-500 block">Gesamtdauer</span>
+                        <span id="stat-total-time" class="text-white font-semibold">0.00 s</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Verstecktes Video-Element zur Frame-Extraktion -->
+    <video id="hidden-source-video" playsinline muted class="hidden"></video>
+
+    <script>
+        // =========================================================================
+        // MOTION SHOT PHYSIK – HAUPTLOGIK & BILDVERARBEITUNG
+        // =========================================================================
+
+        // Icons initialisieren
+        lucide.createIcons();
+
+        // Zentraler Anwendungszustand
+        const state = {
+            activeTab: 'camera',          // 'camera' | 'upload' | 'result'
+            stream: null,                 // Aktiver MediaStream der Kamera
+            facingMode: 'environment',    // 'environment' (Rückkamera) oder 'user' (Front)
+            isRecording: false,
+            liveCaptureRaf: null,         // AnimationFrame-Handle für direktes iPad-Canvas-Sampling
+            videoUrl: null,               // Objekt-URL des aktuellen Videos (Upload oder Demo)
+            videoDuration: 0,
+            extractedFrames: [],          // Array von { time, imageData, width, height, enabled, thumbUrl, centroid }
+            backgroundData: null,         // Berechnetes sauberes Hintergrundbild (ImageData)
+            canvasWidth: 0,
+            canvasHeight: 0,
+            intervalMs: 40,               // Δt in Millisekunden (ab 5 ms)
+            threshold: 32,                // Pixel-Differenz-Schwellenwert (10 - 100)
+            fadePercent: 40,              // Verblassen älterer Phasen (0 - 85 %)
+            showOverlay: true,
+            showNumbers: false,
+            isProcessing: false
+        };
+// ... existing code ... -->
+            thumbnailsSection: document.getElementById('thumbnails-section'),
+            thumbnailsList: document.getElementById('thumbnails-list'),
+            btnTrimFirst: document.getElementById('btn-trim-first'),
+            btnSelectAllFrames: document.getElementById('btn-select-all-frames'),
+            btnSelectEvenFrames: document.getElementById('btn-select-even-frames'),
+
+            sliderInterval: document.getElementById('slider-interval'),
+            valInterval: document.getElementById('val-interval'),
+            btnEveryFrame: document.getElementById('btn-every-frame'),
+            sliderThreshold: document.getElementById('slider-threshold'),
+// ... existing code ... -->
+        // -------------------------------------------------------------------------
+        // 2. LIVE-KAMERA & DIREKTES FRAME-SAMPLING (OPTIMIERT FÜR IPAD / SAFARI)
+        // -------------------------------------------------------------------------
+        function isImageDataBlack(imageData) {
+            // Stichprobenartige Prüfung (jedes 16. Pixel) auf reines Schwarz (iPad/Safari Black-Frame-Bug)
+            const data = imageData.data;
+            const totalSamples = Math.floor(data.length / 64);
+            if (totalSamples === 0) return true;
+
+            let sumLuma = 0;
+            let blackSamples = 0;
+            for (let i = 0; i < data.length; i += 64) {
+                const luma = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                sumLuma += luma;
+                if (luma < 4) blackSamples++;
+            }
+            const avgLuma = sumLuma / totalSamples;
+            const blackRatio = blackSamples / totalSamples;
+            return avgLuma < 3.5 || blackRatio > 0.98;
+        }
+
+        async function initCamera() {
+            try {
+                if (state.stream) {
+                    state.stream.getTracks().forEach(track => track.stop());
+                }
+                const constraints = {
+                    audio: false,
+                    video: {
+                        facingMode: { ideal: state.facingMode },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        frameRate: { ideal: 60, max: 120 }
+                    }
+                };
+                state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                els.cameraPreview.srcObject = state.stream;
+                els.cameraPreview.setAttribute('playsinline', '');
+                els.cameraPreview.muted = true;
+
+                // Warten bis Safari/iPadOS echte Video-Frames liefert
+                await new Promise((resolve) => {
+                    if (els.cameraPreview.readyState >= 2 && els.cameraPreview.videoWidth > 0) {
+                        resolve();
+                    } else {
+                        els.cameraPreview.onloadeddata = () => resolve();
+                    }
+                });
+                await els.cameraPreview.play();
+
+                els.cameraPreview.classList.remove('hidden');
+                els.cameraPlaceholder.classList.add('hidden');
+                els.cameraControls.classList.remove('hidden');
+            } catch (err) {
+                console.error('Kamerafehler:', err);
+                showToast('Kamera konnte nicht gestartet werden. Bitte Berechtigung prüfen oder Video-Upload nutzen.', 'error');
+            }
+        }
+
+        els.btnStartCamera.addEventListener('click', initCamera);
+// ... existing code ... -->
+        function startRecording() {
+            if (!state.stream) return;
+            const videoEl = els.cameraPreview;
+
+            if (videoEl.readyState < 2 || videoEl.videoWidth === 0) {
+                showToast('Kamera initialisiert noch – bitte einen Moment warten.', 'info');
+                return;
+            }
+
+            state.isRecording = true;
+            const durationSec = parseFloat(els.selectRecDuration.value);
+
+            // Arbeitsauflösung bestimmen (max. 960px für flüssiges High-FPS-Sampling auf dem iPad)
+            const maxDim = 960;
+            let w = videoEl.videoWidth || 800;
+            let h = videoEl.videoHeight || 450;
+            if (w > maxDim || h > maxDim) {
+                const scale = maxDim / Math.max(w, h);
+                w = Math.round(w * scale);
+                h = Math.round(h * scale);
+            }
+
+            const capCanvas = document.createElement('canvas');
+            capCanvas.width = w;
+            capCanvas.height = h;
+            const capCtx = capCanvas.getContext('2d', { willReadFrequently: true });
+
+            const thumbCanvas = document.createElement('canvas');
+            thumbCanvas.width = 120;
+            thumbCanvas.height = Math.round(120 * (h / w));
+            const thumbCtx = thumbCanvas.getContext('2d');
+
+            const capturedFrames = [];
+            let skippedBlackFrames = 0;
+            let validStartTime = null;
+            const startTime = performance.now();
+            let lastVideoTime = -1;
+
+            els.recordingOverlay.classList.remove('hidden');
+            els.recordBtnLabel.textContent = 'Stopp';
+
+            // Direktes High-FPS-Sampling vom Live-Videostream (umgeht iPadOS MediaRecorder Black-Frames komplett!)
+            function captureLoop(now) {
+                if (!state.isRecording) return;
+
+                const elapsed = (now - startTime) / 1000;
+                els.recordingTimer.textContent = `${Math.min(elapsed, durationSec).toFixed(1)}s / ${durationSec.toFixed(1)}s`;
+
+                if (elapsed >= durationSec) {
+                    finishLiveCapture(capturedFrames, w, h, skippedBlackFrames);
+                    return;
+                }
+
+                // Nur neue Frames des Kamerasensors erfassen
+                if (videoEl.readyState >= 2 && videoEl.currentTime !== lastVideoTime && capturedFrames.length < 180) {
+                    lastVideoTime = videoEl.currentTime;
+                    capCtx.drawImage(videoEl, 0, 0, w, h);
+                    const imgData = capCtx.getImageData(0, 0, w, h);
+
+                    // Schwarze Start-Frames auf iOS/iPadOS sofort aussortieren
+                    if (isImageDataBlack(imgData)) {
+                        skippedBlackFrames++;
+                    } else {
+                        if (validStartTime === null) validStartTime = now;
+                        const relTime = (now - validStartTime) / 1000;
+
+                        thumbCtx.drawImage(capCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+                        capturedFrames.push({
+                            time: relTime,
+                            imageData: imgData,
+                            width: w,
+                            height: h,
+                            enabled: true,
+                            thumbUrl: thumbCanvas.toDataURL('image/jpeg', 0.72),
+                            centroid: null
+                        });
+                    }
+                }
+
+                state.liveCaptureRaf = requestAnimationFrame(captureLoop);
+            }
+
+            state.liveCaptureRaf = requestAnimationFrame(captureLoop);
+
+            // Speichere Abschluss-Callback für manuellen Stopp-Klick
+            state._finishLiveCapture = () => finishLiveCapture(capturedFrames, w, h, skippedBlackFrames);
+        }
+
+        function stopRecording() {
+            if (!state.isRecording) return;
+            if (state._finishLiveCapture) {
+                state._finishLiveCapture();
+            }
+        }
+
+        async function finishLiveCapture(frames, w, h, skippedBlackFrames) {
+            if (!state.isRecording) return;
+            state.isRecording = false;
+            if (state.liveCaptureRaf) cancelAnimationFrame(state.liveCaptureRaf);
+            els.recordingOverlay.classList.add('hidden');
+            els.recordBtnLabel.textContent = 'Aufnahme starten';
+
+            if (frames.length < 2) {
+                showToast('Zu wenige gültige Bilder erfasst. Bitte erneut versuchen.', 'error');
+                return;
+            }
+
+            switchTab('result');
+            els.resultEmptyState.classList.add('hidden');
+            els.processingOverlay.classList.remove('hidden');
+            els.processingText.textContent = 'Berechne statischen Hintergrund (Median-Filter)...';
+            els.processingBar.style.width = '75%';
+
+            await new Promise(r => setTimeout(r, 30));
+
+            state.canvasWidth = w;
+            state.canvasHeight = h;
+            state.extractedFrames = frames;
+            state.videoDuration = frames[frames.length - 1].time;
+            state.backgroundData = computeMedianBackground(frames, w, h);
+
+            // Standardmäßig das eingestellte Δt-Raster anwenden
+            applyIntervalFilter(state.intervalMs);
+
+            els.processingBar.style.width = '100%';
+            els.processingOverlay.classList.add('hidden');
+            els.badgeFpsInfo.textContent = `${frames.length} Rohbilder (${state.videoDuration.toFixed(2)} s)`;
+            els.badgeReady.classList.remove('hidden');
+            els.btnExportPng.disabled = false;
+            els.physicsSummaryCard.classList.remove('hidden');
+
+            buildThumbnailsUI();
+            renderStroboscope();
+
+            const skipNote = skippedBlackFrames > 0 ? ` (${skippedBlackFrames} schwarze Startbilder automatisch gefiltert)` : '';
+            showToast(`Aufnahme analysiert!${skipNote}`, 'success');
+        }
+
+        // -------------------------------------------------------------------------
+        // 3. VIDEO-UPLOAD (DATEIAUSWAHL & DRAG-AND-DROP)
+        // -------------------------------------------------------------------------
+// ... existing code ... -->
+                // Arbeitsauflösung auf max. 960px Breite begrenzen (schnell & gestochen scharf)
+                const maxDim = 960;
+                let w = video.videoWidth || 800;
+                let h = video.videoHeight || 450;
+                if (w > maxDim || h > maxDim) {
+                    const scale = maxDim / Math.max(w, h);
+                    w = Math.round(w * scale);
+                    h = Math.round(h * scale);
+                }
+                state.canvasWidth = w;
+                state.canvasHeight = h;
+
+                const offCanvas = document.createElement('canvas');
+                offCanvas.width = w;
+                offCanvas.height = h;
+                const offCtx = offCanvas.getContext('2d', { willReadFrequently: true });
+
+                const thumbCanvas = document.createElement('canvas');
+                thumbCanvas.width = 120;
+                thumbCanvas.height = Math.round(120 * (h / w));
+                const thumbCtx = thumbCanvas.getContext('2d');
+
+                // Feinere Schrittweite für Slow-Motion & schnelle Bewegungen (bis zu 120 Frames, min. 5 ms)
+                const minStepSec = Math.max(0.005, state.intervalMs / 1000);
+                const maxFrames = 120;
+                const stepSec = Math.max(minStepSec, duration / maxFrames);
+
+                const frames = [];
+                let skippedBlackFrames = 0;
+                let firstValidTime = null;
+                const totalSteps = Math.floor(duration / stepSec) + 1;
+
+                for (let i = 0; i < totalSteps; i++) {
+                    const t = Math.min(i * stepSec, duration - 0.005);
+                    if (t < 0) break;
+
+                    video.currentTime = t;
+                    await new Promise(resolve => {
+                        const onSeek = () => {
+                            video.removeEventListener('seeked', onSeek);
+                            resolve();
+                        };
+                        video.addEventListener('seeked', onSeek);
+                    });
+
+                    offCtx.drawImage(video, 0, 0, w, h);
+                    const imgData = offCtx.getImageData(0, 0, w, h);
+
+                    // Schwarze Startbilder (häufig bei iPhone/iPad MOV-Videos) überspringen
+                    if (isImageDataBlack(imgData)) {
+                        skippedBlackFrames++;
+                        continue;
+                    }
+
+                    if (firstValidTime === null) firstValidTime = t;
+                    const normalizedTime = t - firstValidTime;
+
+                    thumbCtx.drawImage(video, 0, 0, thumbCanvas.width, thumbCanvas.height);
+                    const thumbUrl = thumbCanvas.toDataURL('image/jpeg', 0.7);
+
+                    frames.push({
+                        time: normalizedTime,
+                        imageData: imgData,
+                        width: w,
+                        height: h,
+                        enabled: true,
+                        thumbUrl: thumbUrl,
+                        centroid: null
+                    });
+
+                    const progress = Math.round(((i + 1) / totalSteps) * 75);
+                    els.processingBar.style.width = `${progress}%`;
+                    els.processingText.textContent = `Extrahiere Phase ${frames.length} (${normalizedTime.toFixed(3)} s)...`;
+                }
+
+                if (frames.length < 2) {
+                    throw new Error('Das Video enthält zu wenige gültige Einzelbilder für eine Analyse.');
+                }
+
+                state.extractedFrames = frames;
+                els.processingText.textContent = 'Berechne statischen Hintergrund (Median-Filter)...';
+                els.processingBar.style.width = '88%';
+
+                // Kurze Pause für UI-Update
+                await new Promise(r => setTimeout(r, 30));
+
+                // Sauberen statischen Hintergrund per pixelweisem Median berechnen
+                state.backgroundData = computeMedianBackground(frames, w, h);
+                applyIntervalFilter(state.intervalMs);
+
+                els.processingBar.style.width = '100%';
+                els.badgeFpsInfo.textContent = `${frames.length} Rohbilder (${frames[frames.length - 1].time.toFixed(2)} s)`;
+                els.badgeReady.classList.remove('hidden');
+                els.btnExportPng.disabled = false;
+                els.physicsSummaryCard.classList.remove('hidden');
+
+                buildThumbnailsUI();
+                renderStroboscope();
+                const skipMsg = skippedBlackFrames > 0 ? ` (${skippedBlackFrames} schwarze Startframes übersprungen)` : '';
+                showToast(`Bewegungsanalyse abgeschlossen!${skipMsg}`, 'success');
+
+            } catch (err) {
+                console.error(err);
+                showToast(err.message || 'Fehler bei der Videoanalyse.', 'error');
+            } finally {
+                state.isProcessing = false;
+                els.processingOverlay.classList.add('hidden');
+            }
+        }
+// ... existing code ... -->
+                item.innerHTML = `
+                    <img src="${frame.thumbUrl}" alt="Phase ${idx}" class="w-20 h-12 object-cover rounded-lg pointer-events-none">
+                    <span class="text-[10px] font-mono ${frame.enabled ? 'text-sky-300 font-semibold' : 'text-slate-500'}">
+                        ${frame.time.toFixed(3)}s
+                    </span>
+                `;
+// ... existing code ... -->
+        els.btnTrimFirst.addEventListener('click', () => {
+            if (state.extractedFrames.length <= 2) {
+                showToast('Es müssen mindestens 2 Bilder erhalten bleiben.', 'info');
+                return;
+            }
+            // Entfernt das erste Bild komplett und berechnet den Median-Hintergrund neu
+            state.extractedFrames.shift();
+            const t0 = state.extractedFrames[0].time;
+            state.extractedFrames.forEach(f => f.time = Math.max(0, f.time - t0));
+            state.backgroundData = computeMedianBackground(state.extractedFrames, state.canvasWidth, state.canvasHeight);
+            buildThumbnailsUI();
+            renderStroboscope();
+            showToast('Erstes Bild entfernt & Hintergrund aktualisiert.', 'success');
+        });
+
+        els.btnSelectAllFrames.addEventListener('click', () => {
+            state.extractedFrames.forEach(f => f.enabled = true);
+            buildThumbnailsUI();
+            renderStroboscope();
+        });
+
+        els.btnSelectEvenFrames.addEventListener('click', () => {
+            state.extractedFrames.forEach((f, idx) => f.enabled = (idx % 2 === 0));
+            buildThumbnailsUI();
+            renderStroboscope();
+        });
+
+        // -------------------------------------------------------------------------
+        // 6. SLIDER & STEUERELEMENTE (ECHTZEIT-UPDATE AB 5 MS)
+        // -------------------------------------------------------------------------
+        function applyIntervalFilter(intervalMs) {
+            if (state.extractedFrames.length === 0) return;
+            const targetStepSec = intervalMs / 1000;
+            let lastSelectedTime = -Infinity;
+            state.extractedFrames.forEach(frame => {
+                if (frame.time - lastSelectedTime >= targetStepSec - 0.0015) {
+                    frame.enabled = true;
+                    lastSelectedTime = frame.time;
+                } else {
+                    frame.enabled = false;
+                }
+            });
+        }
+
+        function updateIntervalLabel(ms) {
+            const sec = (ms / 1000).toFixed(3).replace('.', ',');
+            const hz = (1000 / ms).toFixed(ms < 20 ? 0 : 1);
+            els.valInterval.textContent = `${ms} ms (${sec} s | ${hz} Hz)`;
+        }
+
+        els.sliderInterval.addEventListener('input', (e) => {
+            state.intervalMs = parseInt(e.target.value, 10);
+            updateIntervalLabel(state.intervalMs);
+
+            if (state.extractedFrames.length > 0) {
+                applyIntervalFilter(state.intervalMs);
+                buildThumbnailsUI();
+                renderStroboscope();
+            }
+        });
+
+        els.btnEveryFrame.addEventListener('click', () => {
+            state.intervalMs = 5;
+            els.sliderInterval.value = 5;
+            updateIntervalLabel(5);
+            if (state.extractedFrames.length > 0) {
+                state.extractedFrames.forEach(f => f.enabled = true);
+                buildThumbnailsUI();
+                renderStroboscope();
+                showToast('Alle erfassten Einzelbilder aktiviert (1:1).', 'info');
+            }
+        });
+
+        els.sliderThreshold.addEventListener('input', (e) => {
+// ... existing code ... -->
+                state.extractedFrames = frames;
+                state.videoDuration = totalDuration;
+                state.intervalMs = 80;
+                els.sliderInterval.value = 80;
+                updateIntervalLabel(80);
+                els.badgeFpsInfo.textContent = `Demo: Schräger Wurf (${frames.length} Phasen)`;
+                els.badgeReady.classList.remove('hidden');
+// ... existing code ... -->
