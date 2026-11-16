@@ -378,23 +378,7 @@
                 </button>
             </div>
 
-            <!-- Messwert-Zusammenfassung -->
-            <div id="metrics-box" class="hidden bg-slate-900 rounded-2xl border border-slate-800 p-4">
-                <h3 class="text-xs font-semibold uppercase tracking-wider text-sky-400 mb-2.5">Aktuelle Aufnahme-Kennzahlen</h3>
-                <div class="grid grid-cols-3 gap-2 text-center font-mono-num">
-                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <span class="text-[10px] text-slate-500 block font-sans">Mittleres &Delta;t</span>
-                        <span id="val-metric-dt" class="text-xs sm:text-sm font-semibold text-white">0,040 s</span>
-                    </div>
-                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <span class="text-[10px] text-slate-500 block font-sans">Aktive Phasen</span>
-                        <span id="val-metric-count" class="text-xs sm:text-sm font-semibold text-white">0</span>
-                    </div>
-                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <span class="text-[10px] text-slate-500 block font-sans">Gekürzte Dauer</span>
-                        <span id="val-metric-dur" class="text-xs sm:text-sm font-semibold text-white">0,00 s</span>
-                    </div>
-                </div>
+            
             </div>
         </div>
     </main>
@@ -484,10 +468,7 @@
             lblSensitivity: document.getElementById('lbl-sensitivity'),
             btnExport: document.getElementById('btn-export'),
 
-            metricsBox: document.getElementById('metrics-box'),
-            valMetricDt: document.getElementById('val-metric-dt'),
-            valMetricCount: document.getElementById('val-metric-count'),
-            valMetricDur: document.getElementById('val-metric-dur')
+         
         };
 
         // =====================================================================
@@ -917,7 +898,7 @@
             el.busyOverlay.classList.add('hidden');
             el.dotReady.classList.remove('hidden');
             el.btnExport.disabled = false;
-            el.metricsBox.classList.remove('hidden');
+            
 
             const dur = frames[frames.length - 1].time;
             el.statusPill.textContent = frames.length + ' Rohbilder (' + dur.toFixed(2).replace('.', ',') + ' s)';
@@ -1121,9 +1102,6 @@
                 avgDt = totalDur / (activeFrames.length - 1);
             }
 
-            el.valMetricDt.textContent = avgDt.toFixed(3).replace('.', ',') + ' s';
-            el.valMetricCount.textContent = String(activeFrames.length);
-            el.valMetricDur.textContent = totalDur.toFixed(2).replace('.', ',') + ' s';
         }
 
         // =====================================================================
