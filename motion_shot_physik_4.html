@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Motion Shot Physik – Stroboskop-Bewegungsanalyse</title>
+    <title>StrobMotion</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -134,7 +134,7 @@
                 </div>
                 <div>
                     <h1 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                        Motion Shot
+                        StrobMotion
                     </h1>
                 </div>
             </div>
@@ -352,13 +352,13 @@
                     <div class="flex flex-wrap justify-between items-center gap-1">
                         <label for="rng-interval" class="text-sm font-medium text-slate-200">Zeitabstand &Delta;t</label>
                         <span id="lbl-interval" class="font-mono-num text-xs font-semibold text-sky-300 bg-sky-500/15 px-2.5 py-1 rounded-lg border border-sky-500/30">
-                            40 ms (0,040 s | 25 Hz)
+                            40 ms ( 25 Hz)
                         </span>
                     </div>
-                    <input id="rng-interval" type="range" min="5" max="500" step="5" value="40" class="w-full">
+                    <input id="rng-interval" type="range" min="5" max="1000" step="5" value="40" class="w-full">
                     <div class="flex justify-between items-center text-[11px] text-slate-400 font-mono-num">
                         <span>5 ms</span>
-                        <span>500 ms</span>
+                        <span>1000 ms</span>
                     </div>
                 </div>
 
@@ -1138,7 +1138,7 @@
             try {
                 const link = document.createElement('a');
                 const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-                link.download = 'MotionShot-Physik-' + stamp + '.png';
+                link.download = 'StrobMotion-' + stamp + '.png';
                 link.href = el.resultCanvas.toDataURL('image/png');
                 document.body.appendChild(link);
                 link.click();
